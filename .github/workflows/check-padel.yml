@@ -39,7 +39,7 @@ jobs:
         run: |
           echo "Longitud SESSION_JSON_B64: ${#SESSION_JSON_B64}"
           if [ -n "$SESSION_JSON_B64" ]; then
-            printf '%s' "$SESSION_JSON_B64" | base64 --decode > data/session.json
+            printf '%s' "$SESSION_JSON_B64" | tr -d '[:space:]' | base64 --decode > data/session.json
             echo "session.json escrito: $(wc -c < data/session.json) bytes"
           else
             echo "SECRET SESSION_JSON_B64 vacío o no encontrado"
