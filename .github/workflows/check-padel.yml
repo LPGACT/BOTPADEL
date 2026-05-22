@@ -35,7 +35,16 @@ jobs:
       - name: Crear directorios necesarios
         run: mkdir -p data screenshots
 
-      - name: Restaurar sesión ATC guardada
+      - name: Restaurar sesión ATC (bootstrap desde secret)
+        run: |
+          if [ -n "$SESSION_JSON_B64" ]; then
+            echo "$SESSION_JSON_B64" | base64 -d > data/session.json
+            echo "Sesión cargada desde secret."
+          fi
+        env:
+          SESSION_JSON_B64: ${{ secrets.SESSION_JSON_B64 }}
+
+      - name: Restaurar sesión ATC (cache de runs anteriores)
         uses: actions/cache/restore@v4
         with:
           path: data/session.json
