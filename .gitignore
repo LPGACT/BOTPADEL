@@ -1,0 +1,17 @@
+# Credenciales - NUNCA subir al repositorio
+.env
+
+# Sesión del browser (contiene cookies de autenticación)
+data/session.json
+
+# Logs
+logs/
+
+# Screenshots de debug
+screenshots/*.png
+
+# Node
+node_modules/
+
+# Playwright browsers
+.cache/
