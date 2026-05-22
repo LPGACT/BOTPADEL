@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node src/index.js",
     "check-once": "node src/run-once.js",
+    "status-bot": "node src/telegram-status-bot.js",
     "postinstall": "npx playwright install chromium --with-deps"
   },
   "engines": {
