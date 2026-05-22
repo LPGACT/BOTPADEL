@@ -69,6 +69,7 @@ jobs:
           TARGET_TIMES: '18:00,18:30,19:00,19:30'
           HEADLESS: 'true'
           STOP_AFTER_BOOKING: 'true'
+          SKIP_SESSION_VALIDATION: 'true'
 
       - name: Guardar sesión ATC actualizada
         if: always()

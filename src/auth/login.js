@@ -250,6 +250,11 @@ async function ensureLoggedIn(browser) {
     });
     await applyStealthScripts(context);
 
+    if (process.env.SKIP_SESSION_VALIDATION === 'true') {
+      logger.info('Sesión cargada (validación omitida en CI).');
+      return context;
+    }
+
     if (await isSessionValid(context)) {
       return context;
     }
