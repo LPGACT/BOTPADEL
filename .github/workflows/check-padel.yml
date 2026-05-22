@@ -2,8 +2,8 @@ name: Chequeo Padel
 
 on:
   schedule:
-    - cron: '*/5 * * * *'  # cada 5 minutos (martes a domingos)
-  workflow_dispatch:        # permite correrlo manualmente desde GitHub
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
 
 jobs:
   check:
@@ -35,6 +35,11 @@ jobs:
       - name: Crear directorios necesarios
         run: mkdir -p data screenshots logs
 
+      - name: Escribir .env desde secret
+        run: printf '%s' "$ENV_FILE" > .env
+        env:
+          ENV_FILE: ${{ secrets.ENV_FILE }}
+
       - name: Restaurar sesión ATC (del run anterior)
         uses: actions/cache/restore@v4
         with:
@@ -45,21 +50,6 @@ jobs:
 
       - name: Ejecutar chequeo
         run: node src/run-once.js
-        env:
-          ATC_EMAIL: ${{ secrets.ATC_EMAIL }}
-          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
-          SMTP_USER: ${{ secrets.SMTP_USER }}
-          SMTP_PASS: ${{ secrets.SMTP_PASS }}
-          NOTIFY_EMAIL: ${{ secrets.NOTIFY_EMAIL }}
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          TELEGRAM_GROUP_ID: ${{ secrets.TELEGRAM_GROUP_ID }}
-          VENUE_URL: 'https://atcsports.io/venues/kuman-caba'
-          SPORT_ID: '17'
-          DURATION_MINUTES: '90'
-          TARGET_TIMES: '18:00,18:30,19:00,19:30'
-          HEADLESS: 'true'
-          STOP_AFTER_BOOKING: 'true'
 
       - name: Guardar sesión ATC actualizada
         if: always()
