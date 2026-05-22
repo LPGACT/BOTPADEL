@@ -244,10 +244,20 @@ async function ensureLoggedIn(browser) {
 
   if (sessionExists) {
     logger.info('Cargando sesión guardada...');
-    const context = await browser.newContext({
-      storageState: config.bot.sessionFile,
-      ...getBrowserContextOptions(),
-    });
+    let context;
+    try {
+      context = await browser.newContext({
+        storageState: config.bot.sessionFile,
+        ...getBrowserContextOptions(),
+      });
+    } catch (err) {
+      logger.warn(`Sesión corrupta o inválida (${err.message}). Borrando y haciendo login fresco...`);
+      try { fs.unlinkSync(config.bot.sessionFile); } catch (_) {}
+      const freshContext = await browser.newContext(getBrowserContextOptions());
+      await applyStealthScripts(freshContext);
+      await performLogin(freshContext);
+      return freshContext;
+    }
     await applyStealthScripts(context);
 
     if (process.env.SKIP_SESSION_VALIDATION === 'true') {
