@@ -2,14 +2,13 @@ name: Chequeo Padel
 
 on:
   schedule:
-    - cron: '*/5 * * * *'  # cada 5 minutos
+    - cron: '*/5 * * * *'  # cada 5 minutos (martes a domingos)
   workflow_dispatch:        # permite correrlo manualmente desde GitHub
 
 jobs:
   check:
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    environment: ATC_EMAIL
 
     steps:
       - uses: actions/checkout@v4
@@ -30,24 +29,13 @@ jobs:
           key: playwright-${{ hashFiles('package-lock.json') }}
 
       - name: Instalar Playwright Chromium
+        if: steps.pw-cache.outputs.cache-hit != 'true'
         run: npx playwright install chromium --with-deps
 
       - name: Crear directorios necesarios
-        run: mkdir -p data screenshots
+        run: mkdir -p data screenshots logs
 
-      - name: Restaurar sesión ATC (bootstrap desde secret)
-        run: |
-          echo "Longitud SESSION_JSON_B64: ${#SESSION_JSON_B64}"
-          if [ -n "$SESSION_JSON_B64" ]; then
-            printf '%s' "$SESSION_JSON_B64" | tr -d '[:space:]' | base64 --decode > data/session.json
-            echo "session.json escrito: $(wc -c < data/session.json) bytes"
-          else
-            echo "SECRET SESSION_JSON_B64 vacío o no encontrado"
-          fi
-        env:
-          SESSION_JSON_B64: ${{ secrets.SESSION_JSON_B64 }}
-
-      - name: Restaurar sesión ATC (cache de runs anteriores)
+      - name: Restaurar sesión ATC (del run anterior)
         uses: actions/cache/restore@v4
         with:
           path: data/session.json
@@ -72,7 +60,6 @@ jobs:
           TARGET_TIMES: '18:00,18:30,19:00,19:30'
           HEADLESS: 'true'
           STOP_AFTER_BOOKING: 'true'
-          SKIP_SESSION_VALIDATION: 'true'
 
       - name: Guardar sesión ATC actualizada
         if: always()
