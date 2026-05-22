@@ -2,10 +2,22 @@
 const logger = require('../logger');
 const config = require('../config');
 const { sleep, getNextMonday, formatDate, formatDateTime, retry } = require('../utils');
+const { ensureLoggedIn } = require('../auth/login');
 const { checkAvailability } = require('./availability');
 const { makeReservation } = require('./reserve');
 const { sendBookingEmail } = require('../notifications/email');
 const { sendTelegramMessage, sendBookingNotification } = require('../notifications/telegram');
+
+const BROWSER_ARGS = [
+  '--no-sandbox',
+  '--disable-setuid-sandbox',
+  '--disable-blink-features=AutomationControlled',
+  '--disable-features=IsolateOrigins,site-per-process',
+  '--disable-web-security',
+];
+
+let currentBrowser = null;
+function getCurrentBrowser() { return currentBrowser; }
 
 // Estado compartido del bot (modificado por el módulo de Telegram también)
 const botState = {
@@ -133,9 +145,10 @@ async function runCheckCycle(context) {
 
 /**
  * Bucle principal del monitor.
- * Se ejecuta mientras botState.running === true.
+ * Recibe el objeto `chromium` y lanza/cierra el browser en cada ciclo
+ * para minimizar el uso de RAM en Railway (~$1.20/mes vs ~$5.30 con browser permanente).
  */
-async function startMonitor(context, telegramBot) {
+async function startMonitor(chromium) {
   botState.running = true;
   botState.paused = false;
 
@@ -152,41 +165,46 @@ async function startMonitor(context, telegramBot) {
   ).catch((e) => logger.warn(`Telegram inicio: ${e.message}`));
 
   while (botState.running) {
-    // Pausado: esperar comando Telegram /reiniciar
     if (botState.paused) {
       logger.info('Bot pausado. Esperando /reiniciar desde Telegram...');
       await sleep(30_000);
       continue;
     }
 
-    // No correr los lunes
     if (!shouldRunToday()) {
       logger.info('Hoy es lunes — el bot no monitorea los días del turno. Próximo ciclo en 1h.');
-      await sleep(3_600_000); // 1 hora
+      await sleep(3_600_000);
       continue;
     }
 
+    if (botState.consecutiveErrors >= 10) {
+      logger.warn('10 errores consecutivos detectados. Esperando 15 minutos (posible rate limit)...');
+      await sendTelegramMessage(
+        '⚠️ *Muchos errores consecutivos*\nEl bot esperará 15 minutos antes de continuar.'
+      ).catch(() => {});
+      await sleep(900_000);
+      botState.consecutiveErrors = 0;
+      continue;
+    }
+
+    let browser = null;
+    let context = null;
+
     try {
-      // Cada 10 errores consecutivos, esperar 15 min (posible rate limit)
-      if (botState.consecutiveErrors >= 10) {
-        logger.warn('10 errores consecutivos detectados. Esperando 15 minutos (posible rate limit)...');
-        await sendTelegramMessage(
-          '⚠️ *Muchos errores consecutivos*\nEl bot esperará 15 minutos antes de continuar.'
-        ).catch(() => {});
-        await sleep(900_000);
-        botState.consecutiveErrors = 0;
-        continue;
-      }
+      browser = await chromium.launch({ headless: config.bot.headless, args: BROWSER_ARGS });
+      currentBrowser = browser;
+      context = await ensureLoggedIn(browser);
 
       const booked = await retry(
         () => runCheckCycle(context),
         { maxAttempts: 2, baseDelayMs: 5000, label: 'ciclo de verificación' }
       );
 
+      botState.consecutiveErrors = 0;
+
       if (booked && config.bot.stopAfterBooking) {
         logger.info('Reserva exitosa. Bot pausado. Enviá /reiniciar cuando quieras buscar para la semana siguiente.');
         botState.paused = true;
-        // No salir del loop: espera comando Telegram
         continue;
       }
     } catch (err) {
@@ -198,14 +216,12 @@ async function startMonitor(context, telegramBot) {
           `⚠️ *Error repetido en el bot*\n${err.message}\nSe intentará recuperar automáticamente.`
         ).catch(() => {});
       }
-
-      // Si la sesión expiró, intentar re-autenticar en el próximo ciclo
-      if (err.message?.toLowerCase().includes('login') || err.message?.toLowerCase().includes('sesión')) {
-        logger.info('Posible sesión expirada. Se re-autenticará en el próximo ciclo.');
-      }
+    } finally {
+      try { if (context) await context.close(); } catch (_) {}
+      try { if (browser) await browser.close(); } catch (_) {}
+      currentBrowser = null;
     }
 
-    // Esperar hasta el próximo ciclo
     logger.info(`Próxima verificación en ${config.bot.checkIntervalMs / 1000}s...`);
     await sleep(config.bot.checkIntervalMs);
   }
@@ -233,9 +249,11 @@ function stopMonitor() {
 
 module.exports = {
   startMonitor,
+  runCheckCycle,
   pauseMonitor,
   resumeMonitor,
   stopMonitor,
   getStatusText,
+  getCurrentBrowser,
   botState,
 };

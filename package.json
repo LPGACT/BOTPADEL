@@ -5,7 +5,8 @@
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
-    "setup": "npx playwright install chromium --with-deps"
+    "check-once": "node src/run-once.js",
+    "postinstall": "npx playwright install chromium --with-deps"
   },
   "engines": {
     "node": ">=18.0.0"
