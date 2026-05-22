@@ -50,20 +50,20 @@ jobs:
           printf 'ATC_EMAIL=%s\nGMAIL_APP_PASSWORD=%s\nSMTP_USER=%s\nSMTP_PASS=%s\nNOTIFY_EMAIL=%s\nTELEGRAM_BOT_TOKEN=%s\nTELEGRAM_CHAT_ID=%s\nTELEGRAM_GROUP_ID=%s\nVENUE_URL=https://atcsports.io/venues/kuman-caba\nVENUE_PLACE_ID=\nSPORT_ID=17\nDURATION_MINUTES=90\nTARGET_TIMES=18:00,18:30,19:00,19:30\nHEADLESS=true\nSTOP_AFTER_BOOKING=true\n' \
             "$V1" "$V2" "$V3" "$V4" "$V5" "$V6" "$V7" "$V8" > .env
 
-      - name: Restaurar sesión ATC (del run anterior)
+      - name: Restaurar datos persistentes (sesión + ping diario)
         uses: actions/cache/restore@v4
         with:
-          path: data/session.json
-          key: atc-session-${{ github.run_id }}
+          path: data/
+          key: atc-data-${{ github.run_id }}
           restore-keys: |
-            atc-session-
+            atc-data-
 
       - name: Ejecutar chequeo
         run: node src/run-once.js
 
-      - name: Guardar sesión ATC actualizada
+      - name: Guardar datos persistentes (sesión + ping diario)
         if: always()
         uses: actions/cache/save@v4
         with:
-          path: data/session.json
-          key: atc-session-${{ github.run_id }}
+          path: data/
+          key: atc-data-${{ github.run_id }}
