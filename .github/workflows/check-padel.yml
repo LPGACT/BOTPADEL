@@ -9,6 +9,7 @@ jobs:
   check:
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    environment: ATC_EMAIL
 
     steps:
       - uses: actions/checkout@v4
